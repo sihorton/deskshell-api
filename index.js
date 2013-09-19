@@ -3,8 +3,13 @@
 * Implementation of a deskshell api.
 *
 var shellApp = deskShell.startApp({
-	htdocs:'/content'
-	,port:2222
+	openSocket:true
+	,launchChromium:true
+	,htdocs:'/content'
+		//optional parameters
+		,port:8086
+		,cport:8087
+		,chromiumPath:'..path_to_chromium_binary'
 });
 */
 var Q = require("q");

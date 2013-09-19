@@ -1,6 +1,6 @@
 {
   "name": "deskshell-api",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Api to simplify deskShell applications",
   "main": "index.js",
   "repository": {
