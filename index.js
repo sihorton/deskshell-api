@@ -12,6 +12,7 @@ var shellApp = deskShell.startApp({
 		,chromiumPath:'..path_to_chromium_binary'
 });
 */
+var defaultChromiumPath = require('path').normalize(__dirname +"/../../GoogleChromePortable/App/Chrome-bin/chrome.exe");
 var Q = require("q");
 var freeport = require("freeport");
 var rDebug = require('chrome-rdebug').rDebug;
@@ -43,7 +44,7 @@ var shellApi = {
 					var fs = require('fs');
 					app.server = require('http').createServer(myApp.params['serverHandler'] || function handler (req, res) {
 						if (req.url =='/')req.url = '/index.htm';
-					  fs.readFile("content/" + req.url,function (err, data) {
+					  fs.readFile(app.params['htdocs'] + req.url,function (err, data) {
 						if (err) {
 						  res.writeHead(500);
 						  return res.end('Error loading '+req.url);
@@ -73,36 +74,49 @@ var shellApi = {
 						app.cport = dat.port;
 				
 						//launch chrome
-						if (!app.params['chromiumPath']) app.params['chromiumPath'] ="../../bin/win/GoogleChromePortable/GoogleChromePortable.exe";
-						//chromePath = "../../bin/win/GoogleChromePortable/App/Chrome-bin/chrome.exe";
+						if (!app.params['chromiumPath']) app.params['chromiumPath'] =defaultChromiumPath;
 						//http://peter.sh/experiments/chromium-command-line-switches/
-						
 						//currently these extra switches are not working, more investigation required.
 						if (!app.params['chromiumCmd']) app.params['chromiumCmd'] =  [
-							'--remote-debugging-port='+app.cport
-							,'--user-data-dir=..\chrome-profile'
-							,'--app-window-size=300,300'
-							,'--app'
-							,'--apps-use-native-frame'
-							,'http://localhost:'+myApp.port
+							
+							'--app=http://localhost:'+myApp.port+'/'
+							,'--remote-debugging-port='+app.cport
+							,'--user-data-dir=../../../../chrome-profile'
+							,'--app-window-size=400,500'
+							
 						];
-						app.chromium = require('child_process').spawn(app.params.chromiumPath,app.params.chromiumCmd);
+						var exec = require('child_process').exec;
+						
+						app.chromium = require('child_process')
+							.exec(app.params['chromiumPath']+" "+app.params['chromiumCmd'].join(' '),function(error, stdout, stderr) {
+							console.log(stdout);
+							console.log(stderr);
+							if (error) console.log("chromium exec error:"+error);
+						});
 						console.log("chrome debug port:",app.cport);
 						request("http://localhost:"+app.cport+"/json", function(error, response, body) {
-							var chromeDebugOptions = JSON.parse(body);
-							var chromeDebugUrl = chromeDebugOptions[0].webSocketDebuggerUrl;
-						
-							//bugfix for wierd portable chrome on windows.
-							if (chromeDebugUrl.indexOf('ws:///') > -1) {
-								chromeDebugUrl = chromeDebugUrl.replace('ws:///','ws://localhost:'+myApp.cport+'/');
+							var err = null;
+							try {
+								var chromeDebugOptions = JSON.parse(body);
+							} catch(e) {
+								launching.reject({error:e,app:app});
+								err = e;
 							}
-							console.log("websocket url",chromeDebugUrl);
-							app.chromiumDebugUrl = chromeDebugUrl;
-							app.rDebugApi = rDebug.openSocket(chromeDebugUrl);
-							app.rDebugApi.on('*',function(event) {
-								console.log("Event:",event);
-							});
-							launching.resolve(app);
+							if (!err) {
+								var chromeDebugUrl = chromeDebugOptions[0].webSocketDebuggerUrl;
+							
+								//bugfix for wierd portable chrome on windows.
+								if (chromeDebugUrl.indexOf('ws:///') > -1) {
+									chromeDebugUrl = chromeDebugUrl.replace('ws:///','ws://localhost:'+myApp.cport+'/');
+								}
+								console.log("websocket url",chromeDebugUrl);
+								app.chromiumDebugUrl = chromeDebugUrl;
+								app.rDebugApi = rDebug.openSocket(chromeDebugUrl);
+								app.rDebugApi.on('*',function(event) {
+									console.log("Event:",event);
+								});
+								launching.resolve(app);
+							}
 						});
 					});
 				} else {
