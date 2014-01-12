@@ -105,7 +105,10 @@ var shellApi = {
 						app.rDebugApi.on('*',function(event) {
                                                         console.log("Event:",event);
 							if (event.method === "Inspector.detached" && event.params && event.params['reason'] === "target_closed") {
-								if (app.params['exitOnAppWinClose']) {
+								if(typeof(app.params.onAppWinClose)==="function"){
+                                                                    app.params.onAppWinClose(app);
+                                                                }
+                                                                if (app.params['exitOnAppWinClose']) {
 									console.log("auto close");
 									process.exit(0);
 								}
