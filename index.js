@@ -82,7 +82,7 @@ var shellApi = {
 				if (!err) {
 					var chromeDebugUrl;
 					for(var s=0;s<chromeDebugOptions.length;s++) {
-						if ((app.params["ignoreUrlRedirection"]||(chromeDebugOptions[s]['url'] == appUrl)) 
+						if ((app.params["ignoreUrlRedirection"]||(chromeDebugOptions[s]['url'] === appUrl)) 
                                                         && (chromeDebugOptions[s]['webSocketDebuggerUrl'])) {
 							chromeDebugUrl = chromeDebugOptions[s].webSocketDebuggerUrl;
 							console.log("found debug socket",chromeDebugUrl);
@@ -105,8 +105,12 @@ var shellApi = {
 						app.rDebugApi.on('*',function(event) {
                                                         console.log("Event:",event);
 							if (event.method === "Inspector.detached" && event.params && event.params['reason'] === "target_closed") {
-								if(typeof(app.params.onAppWinClose)==="function"){
-                                                                    app.params.onAppWinClose(app);
+								if(typeof(app.onAppWinClose)==="function"){
+                                                                    try{
+                                                                        app.onAppWinClose(app);
+                                                                    }catch(e){
+                                                                        console.log(e);
+                                                                    }
                                                                 }
                                                                 if (app.params['exitOnAppWinClose']) {
 									console.log("auto close");
@@ -115,8 +119,8 @@ var shellApi = {
 							}
 						});
                                                 app.rDebugApi.ws.on("open",function(){
-                                                    if(typeof(app.params.onRemoteApiReady)==="function"){
-                                                        app.params.onRemoteApiReady(app,app.rDebugApi);
+                                                    if(typeof(app.onRemoteApiReady)==="function"){
+                                                        app.onRemoteApiReady(app,app.rDebugApi);
                                                     }
                                                 });
                                                 //app.then(app.rDebugApi);
@@ -134,13 +138,13 @@ var shellApi = {
 		var starting = Q.defer();
 		var myApp = {
 			params:shellApi.appDef
-		}
+		};
 		for(var p in params) {
 			myApp.params[p] = params[p];
 		}
-		if (typeof myApp.params['appSocket'] == 'undefined') myApp.params['appSocket'] = true;
-		if (typeof myApp.params['openAppWin'] == 'undefined') myApp.params['openAppWin'] = true;
-		if (typeof myApp.params['exitOnAppWinClose'] == 'undefined') myApp.params['exitOnAppWinClose'] = true;
+		if (typeof myApp.params['appSocket'] === 'undefined') myApp.params['appSocket'] = true;
+		if (typeof myApp.params['openAppWin'] === 'undefined') myApp.params['openAppWin'] = true;
+		if (typeof myApp.params['exitOnAppWinClose'] === 'undefined') myApp.params['exitOnAppWinClose'] = true;
 		
 			shellApi.getFreePort(myApp,myApp.params['port'])
 			.then(function(dat) {
@@ -161,17 +165,17 @@ var shellApi = {
 							var reqfile = require("url").parse(req.url).pathname;	
 							switch (reqfile) {
 								case '/deskShell/clientApi.js':
-									serveFile = __dirname + '/clientApi.js'
+									serveFile = __dirname + '/clientApi.js';
 								break;
 								default:
 									if (deskShell.packageFile) {
 										serveFile = app.params['htdocs'] + reqfile;
-										if (serveFile.slice(-1) == '/') {
+										if (serveFile.slice(-1) === '/') {
 											serveFile += myApp.params['defaultLocation'];
 										}
 									} else {
 										serveFile = deskShell.appDir + app.params['htdocs'] + reqfile;
-										if (serveFile.slice(-1) == '/') {
+										if (serveFile.slice(-1) === '/') {
 											serveFile += myApp.params['defaultLocation'];
 										}
 									}
@@ -251,7 +255,7 @@ var shellApi = {
                                                 
 						if (shellApi.appDef['startUri']) appUrl += shellApi.appDef['startUri'];
 						
-						if (shellApi.appDef['mode'] && shellApi.appDef['mode'] == 'kiosk') {
+						if (shellApi.appDef['mode'] && shellApi.appDef['mode'] === 'kiosk') {
 							if (!app.params['chromiumCmd']) app.params['chromiumCmd'] =  [	
 								'--kiosk'
 								,'--remote-debugging-port='+app.cport
