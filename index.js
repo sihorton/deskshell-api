@@ -82,7 +82,7 @@ var shellApi = {
 				if (!err) {
 					var chromeDebugUrl;
 					for(var s=0;s<chromeDebugOptions.length;s++) {
-						if ((app.params["ignoreRedirect"]||(chromeDebugOptions[s]['url'] == appUrl)) 
+						if ((app.params["ignoreUrlRedirection"]||(chromeDebugOptions[s]['url'] == appUrl)) 
                                                         && (chromeDebugOptions[s]['webSocketDebuggerUrl'])) {
 							chromeDebugUrl = chromeDebugOptions[s].webSocketDebuggerUrl;
 							console.log("found debug socket",chromeDebugUrl);
