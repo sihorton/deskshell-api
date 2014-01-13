@@ -60,13 +60,20 @@ var shellApi = {
 		}
 		return getting.promise;		
 	},getDebugSocket:function(app,appUrl,launching,timeout,tries) {
-		if (tries == undefined) tries = 3;
-		
+		if (tries === undefined) tries = 3;
+
 		setTimeout(function() {
 			request("http://localhost:"+app.cport+"/json", function(error, response, body) {
 				var err = null;
 				try {
-					var chromeDebugOptions = JSON.parse(body);
+                                    var chromeDebugOptions;
+                                    
+                                    if (error) {
+                                        throw error;
+                                    }
+                                    
+                                    chromeDebugOptions = JSON.parse(body);
+
 				} catch(e) {
 					launching.reject({error:e,app:app});
 					err = e;
@@ -75,7 +82,8 @@ var shellApi = {
 				if (!err) {
 					var chromeDebugUrl;
 					for(var s=0;s<chromeDebugOptions.length;s++) {
-						if ((chromeDebugOptions[s]['url'] == appUrl) && (chromeDebugOptions[s]['webSocketDebuggerUrl'])) {
+						if ((app.params["ignoreUrlRedirection"]||(chromeDebugOptions[s]['url'] == appUrl)) 
+                                                        && (chromeDebugOptions[s]['webSocketDebuggerUrl'])) {
 							chromeDebugUrl = chromeDebugOptions[s].webSocketDebuggerUrl;
 							console.log("found debug socket",chromeDebugUrl);
 							break;
@@ -95,19 +103,30 @@ var shellApi = {
 						app.chromiumDebugUrl = chromeDebugUrl;
 						app.rDebugApi = rDebug.openSocket(chromeDebugUrl);
 						app.rDebugApi.on('*',function(event) {
-							if (event.method == "Inspector.detached" && event.params && event.params['reason'] == "target_closed") {
-								if (app.params['exitOnAppWinClose']) {
+                                                        console.log("Event:",event);
+							if (event.method === "Inspector.detached" && event.params && event.params['reason'] === "target_closed") {
+								if(typeof(app.params.onAppWinClose)==="function"){
+                                                                    app.params.onAppWinClose(app);
+                                                                }
+                                                                if (app.params['exitOnAppWinClose']) {
 									console.log("auto close");
 									process.exit(0);
 								}
 							}
-							console.log("Event:",event);
 						});
+                                                app.rDebugApi.ws.on("open",function(){
+                                                    if(typeof(app.params.onRemoteApiReady)==="function"){
+                                                        app.params.onRemoteApiReady(app,app.rDebugApi);
+                                                    }
+                                                });
+                                                //app.then(app.rDebugApi);
 						launching.resolve(app);
 					}
-				}
-				
-			})
+				}else{
+                                    console.log("Fail to connect chrome debug server, try again after 500 ms:" + err);
+                                    shellApi.getDebugSocket(app,appUrl,launching,500,tries+1);
+                                }
+			});
 			
 		},timeout);
 		
@@ -223,7 +242,13 @@ var shellApi = {
 						//http://peter.sh/experiments/chromium-command-line-switches/
 						//--window-position
 						
-						var appUrl ='http://localhost:'+myApp.port+'/';
+                                                var appUrl;
+                                                if(shellApi.appDef['appUrl']){
+                                                    appUrl =shellApi.appDef['appUrl'];
+                                                }else{
+                                                    appUrl ='http://localhost:'+myApp.port+'/';
+                                                }
+                                                
 						if (shellApi.appDef['startUri']) appUrl += shellApi.appDef['startUri'];
 						
 						if (shellApi.appDef['mode'] && shellApi.appDef['mode'] == 'kiosk') {
@@ -260,7 +285,7 @@ var shellApi = {
 									app.params['chromiumCmd'].push(app.params['chromiumFlags'][i]);
 								}
 							}
-							
+
 							var exec = require('child_process').exec;
 							app.chromium = require('child_process')
 								.exec('"'+app.params['chromiumPath']+'" '+app.params['chromiumCmd'].join(' '),function(error, stdout, stderr) {
@@ -272,7 +297,7 @@ var shellApi = {
 						console.log(appUrl);
 						
 						var findSocket = Q.defer();
-						shellApi.getDebugSocket(app,appUrl,findSocket,200)
+						shellApi.getDebugSocket(app,appUrl,findSocket,200);
 						launching.resolve(app);
 					});
 				} else {
@@ -370,9 +395,9 @@ var shellApi = {
 		var deskShellClientApi = {
 			v:shellApi.v
 			,userAppDir:path.normalize(deskShell.platformDir+path.sep+'..'+path.sep+'..'+path.sep+'..'+path.sep+'deskshell-apps')
-		}
+		};
 		return deskShellClientApi;
 	}
-}
+};
 
 exports.api = shellApi;
